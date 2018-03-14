@@ -1,5 +1,17 @@
 # sql2xlsx
-Generate Excel/OpenXML/XLSX files from SQL query
+
+Generates a formatted Excel/OpenXML/XLSX files from an SQL query to MySQL.
+
+The generated spreadsheet will have the columns names from the query on
+the first line of the working sheet. The working sheet will have the first
+line frozen and will have auto filter enabled for all columns.
+
+Cells types will match the returned types from MySQL, eg., numbers will be
+number, dates will be dates, etc.
+
+Cells formatting will be the standard for that cell type, except for floats
+and Decimals, which will be formatted as numbers with two decimal digits and
+with decimal and thousands separator.
 
 
 ## How to use
@@ -12,6 +24,9 @@ You can simply run:
     $ ./sql2xlsx.py myquery.sql myreport.xlsx
 
 And that is it.
+
+The second argument is optional, if omitted, output name will be derived from
+input name.
 
 
 ## Quick Start
@@ -110,7 +125,7 @@ WHERE hire_date
 But the parameters are not yet supported to be passed from the command line.
 
 If you want to used this, for now you will have to instantiate the class
-for yourself. A complete exemple on how to do that:
+for yourself. A complete example on how to do that:
 
 
 ```python
@@ -132,5 +147,32 @@ params = {
 mysql2xlsx = MySql2Xlsx(mysql_config, query, out_fname, params)
 mysql2xlsx.generate_report()
 ```
+
+## To Do / Next Steps / Roadmap / Ideas
+
+This script was hacked in a few hours, without proper development practices.
+
+Below is a list of some things I would like to add/change one day (in no
+particular order). Or ideas for you to contribute if you feel like it:
+
+- [x] Convert procedural steps to methods in a class.
+- [x] Make the class easy to be used/subclassed by importing scripts.
+- [x] Accept parameterized queries.
+- [x] Implement some heuristic for column width resizing.
+- [ ] Add tests (unittest or BDD?).
+- [ ] Use argparse for command line options handling.
+- [ ] Create a decent --help.
+- [ ] Make a distributable package (installable via pip)
+- [ ] Create a man page.
+- [ ] Make internal verbosity level configurable by CLI (via multiple -v options)
+- [ ] Add parameterized queries to CLI.
+- [ ] Improve heuristic for column width resizing and make it easier to overwrite/customize.
+- [ ] Make it easier to customize common formatting, such as default font and size.
+- [ ] Add time stamp to derived output name.
+- [ ] Make derived output file path to be current working dir.
+- [ ] Replace custom hacky printing for logging module.
+- [ ] Make use of config file optional (credentials via CLI or env vars)
+
+If you got any other ideas, feel free to fork and submit a pull request!
 
 
