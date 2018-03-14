@@ -1,17 +1,19 @@
 # sql2xlsx
 
-Generates a formatted Excel/OpenXML/XLSX files from an SQL query to MySQL.
+Easily generate formatted Excel/OpenXML/XLSX files from SQL queries to MySQL. 
 
 The generated spreadsheet will have the columns names from the query on
 the first line of the working sheet. The working sheet will have the first
 line frozen and will have auto filter enabled for all columns.
 
-Cells types will match the returned types from MySQL, eg., numbers will be
+Cells' types will match the returned types from MySQL, eg., numbers will be
 number, dates will be dates, etc.
 
-Cells formatting will be the standard for that cell type, except for floats
-and Decimals, which will be formatted as numbers with two decimal digits and
-with decimal and thousands separator.
+Floats and Decimals will be formatted as numbers with two decimal digits and
+with decimal and thousands separators. Other types will use the standard
+formatting for each type.
+
+Columns' width will be resized to fit at least 90% of the cells in the column.
 
 
 ## How to use
@@ -162,6 +164,7 @@ particular order). Or ideas for you to contribute if you feel like it:
 - [ ] Add tests (unittest or BDD?).
 - [ ] Use argparse for command line options handling.
 - [ ] Create a decent --help.
+- [ ] Document the source code.
 - [ ] Make a distributable package (installable via pip)
 - [ ] Create a man page.
 - [ ] Make internal verbosity level configurable by CLI (via multiple -v options)
@@ -171,7 +174,7 @@ particular order). Or ideas for you to contribute if you feel like it:
 - [ ] Add time stamp to derived output name.
 - [ ] Make derived output file path to be current working dir.
 - [ ] Replace custom hacky printing for logging module.
-- [ ] Make use of config file optional (credentials via CLI or env vars)
+- [ ] Make use of config file optional (credentials via CLI or env vars).
 
 If you got any other ideas, feel free to fork and submit a pull request!
 
