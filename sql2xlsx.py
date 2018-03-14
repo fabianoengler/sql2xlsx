@@ -175,7 +175,11 @@ class MySql2Xlsx(object):
         verb(2, 'Formating numbers...')
         for i, cells_types in enumerate(self.cols_types):
             del cells_types[type(None)]
-            col_type = cells_types.most_common(1)[0][0]
+            try:
+                col_type = cells_types.most_common(1)[0][0]
+            except IndexError:
+                continue # no other types besides None
+
             if col_type in (float, Decimal):
                 for cell in self.ws[get_column_letter(i+1)]:
                     cell.number_format = self.NUMBER_FORMAT
@@ -225,9 +229,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
 
