@@ -117,16 +117,21 @@ class MySql2Xlsx(object):
     def mysql_fetch_data_chunk(self, chunk_size=FETCH_CHUNK_SIZE):
         return self.cursor.fetchmany(size=chunk_size)
 
-    def mysql_fetch_rows_iterator(self, chunk_size=FETCH_CHUNK_SIZE):
+    def mysql_fetch_chunk_iterator(self, chunk_size=FETCH_CHUNK_SIZE):
         while True:
             data_chunk = self.mysql_fetch_data_chunk(chunk_size)
             if not data_chunk:
-                verb(2, '')
                 return
+            yield data_chunk
 
+
+    def mysql_fetch_rows_iterator(self, chunk_size=FETCH_CHUNK_SIZE):
+        for data_chunk in self.mysql_fetch_chunk_iterator():
             verb(2, '.', end='')
             for data_row in data_chunk:
                 yield data_row
+        verb(2, '')
+
 
     def write_column_names(self):
         verb(3, 'Writing column names on first row...')
@@ -138,29 +143,44 @@ class MySql2Xlsx(object):
         self.ws.append(sheet_row)
         return self.ws
 
-    def fetch_rows_and_write(self, chunk_size=FETCH_CHUNK_SIZE,
-                             fetch_rows_iter=None):
-        if fetch_rows_iter is None:
-            fetch_rows_iter = self.mysql_fetch_rows_iterator
+    def _fetch_write_loop_start(self, chunk_size=FETCH_CHUNK_SIZE):
         cols_lengths = [ [] for _ in range(len(self.cursor.column_names)) ]
         cols_types = [ Counter() for _ in range(len(self.cursor.column_names)) ]
-        verb(1, 'Writing data to worksheet...')
-        for data_row in fetch_rows_iter():
-            sheet_row = []
-            for i, value in enumerate(data_row):
-                sheet_row.append(value)
-                chars = 0 if value is None else len(str(value))
-                if isinstance(value, int):
-                    chars += 1
-                elif isinstance(value, (float, Decimal)):
-                    chars += 2
-                cols_types[i][type(value)] += 1
-                cols_lengths[i].append(0 if value is None else len(str(value)))
-            self.ws.append(sheet_row)
-        verb(2, 'Total Number of rows: {}'.format(self.cursor.rowcount))
 
         self.cols_lengths = cols_lengths 
         self.cols_types = cols_types 
+
+
+    def _fetch_write_loop_step(self, data_row):
+        cols_lengths = self.cols_lengths 
+        cols_types = self.cols_types 
+        sheet_row = []
+        for i, value in enumerate(data_row):
+            sheet_row.append(value)
+            chars = 0 if value is None else len(str(value))
+            if isinstance(value, int):
+                chars += 1
+            elif isinstance(value, (float, Decimal)):
+                chars += 2
+            cols_types[i][type(value)] += 1
+            cols_lengths[i].append(0 if value is None else len(str(value)))
+        self.ws.append(sheet_row)
+
+
+    def _fetch_write_loop_finish(self):
+        pass
+
+    def fetch_rows_and_write(self, chunk_size=FETCH_CHUNK_SIZE):
+
+        verb(1, 'Writing data to worksheet...')
+
+        self._fetch_write_loop_start(chunk_size)
+        for data_row in self.mysql_fetch_rows_iterator():
+            self._fetch_write_loop_step(data_row)
+
+        verb(2, 'Total Number of rows: {}'.format(self.cursor.rowcount))
+        self._fetch_write_loop_finish()
+
         return self.ws
 
     def _check_tmp_fname(self):
