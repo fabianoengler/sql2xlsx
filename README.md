@@ -62,42 +62,46 @@ phpMyAdmin and export the results when I needed a quick report or a quick dump
 of a table.
 
 So I decided to write a helper script to save me a few minutes when I needed
-to export those result to a spreadsheet and apply some filter and sorting.
+to export those results to a spreadsheet and apply some filtering and sorting.
 
 Hence, this is very simple and hacky script done in a hurry in a rainy night
 that I decided to share, so don't expect much: It doesn't have unittest, it
-doesn't use argparse, it's source is not commented, it doesn't use the best
-coding practices ever, etc., etc. Again: it is a very simple script done in a
-few spare hours, but it does the job for me.
+doesn't use argparse, it's source-code is not commented, it doesn't use the
+best coding practices ever, etc., etc.
+
+Again: it is a very simple script done in a few spare hours, but it does
+the job for me. Hope you find it useful as well.
 
 
 ## Customizing the XLSX output
 
-The script is extremely simple. It has one class called MySql2Xlsx that drives
-all the process of executing the query and writing the results to a
+The script is extremely simple. It has one class called `MySql2Xlsx` that
+drives all the process of executing the query and writing the results to a
 spreadsheet.
 
-If called from command line, the script will instantiate and object of this
+If called from command line, the script will instantiate an object of this
 class and simply call `generate_report()`.
 
 `generate_report()` in the other hand will simply call many helper methods
 in sequence. If you want to customize anything, it should be very easy to
-subclass this MySql2Xlsx() and overwrite any method you want.
+subclass this MySql2Xlsx() and overwrite any methods you want.
 
 Some good candidates for overwriting are:
 
-    - `make_final_adjustments()`
-    - `resize_columns()`
-    - `format_numbers()`
-    - `format_column_names()`
+- `make_final_adjustments()`
+- `resize_columns()`
+- `format_numbers()`
+- `format_column_names()`
 
 
 ## Hidden feature: parameterized queries
 
 The queries can actually have parameters, using python format style, like:
 
-    SELECT first_name, last_name, hire_date FROM employees
-    WHERE hire_date BETWEEN %(start_date)s AND %(end_date)s
+```SQL
+SELECT first_name, last_name, hire_date FROM employees
+WHERE hire_date BETWEEN %(start_date)s AND %(end_date)s
+```
 
 
 But the parameters are not yet supported to be passed from the command line.
@@ -106,24 +110,24 @@ If you want to used this, for now you will have to instantiate the class
 for yourself. A complete exemple on how to do that:
 
 
-    #!/bin/env python3
+```python
+#!/bin/env python3
 
-    from sql2xlsx import MySql2Xlsx
-    from config import mysql_config 
-    import sys
-    import datetime
+from sql2xlsx import MySql2Xlsx
+from config import mysql_config 
+import sys
+import datetime
 
-    query = open(sys.argv[1], 'rt').read()
-    out_fname = sys.argv[2]
+query = open(sys.argv[1], 'rt').read()
+out_fname = sys.argv[2]
 
-    params = {
-        'start_date': datetime.date(2017, 1, 1),
-        'end_date': datetime.date(2017, 6, 1)
-    }
+params = {
+    'start_date': datetime.date(2017, 1, 1),
+    'end_date': datetime.date(2017, 6, 1)
+}
 
-    mysql2xlsx = MySql2Xlsx(mysql_config, query, out_fname, params)
-    mysql2xlsx.generate_report()
-
-
+mysql2xlsx = MySql2Xlsx(mysql_config, query, out_fname, params)
+mysql2xlsx.generate_report()
+```
 
 
