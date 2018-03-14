@@ -161,13 +161,14 @@ particular order). Or ideas for you to contribute if you feel like it:
 - [x] Make the class easy to be used/subclassed by importing scripts.
 - [x] Accept parameterized queries.
 - [x] Implement some heuristic for column width resizing.
+- [x] Use tempfile for intermediate file if output file name not defined.
 - [ ] Add tests (unittest or BDD?).
 - [ ] Use argparse for command line options handling.
 - [ ] Create a decent --help.
 - [ ] Document the source code.
-- [ ] Make a distributable package (installable via pip)
+- [ ] Make a distributable package (installable via pip).
 - [ ] Create a man page.
-- [ ] Make internal verbosity level configurable by CLI (via multiple -v options)
+- [ ] Make internal verbosity level configurable by CLI (via multiple -v options).
 - [ ] Add parameterized queries to CLI.
 - [ ] Improve heuristic for column width resizing and make it easier to overwrite/customize.
 - [ ] Make it easier to customize common formatting, such as default font and size.

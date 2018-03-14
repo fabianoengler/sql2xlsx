@@ -8,6 +8,7 @@ produce a nice formated XLSX output file.
 
 import sys
 import mysql.connector
+import os
 from openpyxl import Workbook
 from openpyxl.utils.cell import get_column_letter
 from openpyxl.worksheet.write_only import WriteOnlyCell
@@ -17,6 +18,7 @@ from openpyxl.styles import Alignment
 from decimal import Decimal
 from math import ceil
 from collections import Counter
+from tempfile import NamedTemporaryFile
 
 verbosity_level = 2
 #verbosity_level = 5
@@ -32,16 +34,19 @@ class MySql2Xlsx(object):
     MIN_COL_WIDTH = 6
     MIN_COL_FULL_LEN = 25
     NUMBER_FORMAT = '#,##0.00'
+    FETCH_CHUNK_SIZE = 1000
 
-    def __init__(self, mysql_config, query_str, out_fname, query_params=None):
+    def __init__(self, mysql_config=None, query_str=None, out_fname=None,
+                 query_params=None):
         self.__mysql_config = mysql_config
         self.query_str = query_str 
-        self.out_fname = out_fname
+        self.tmp_fname = self.out_fname = out_fname
         self.query_params = query_params
+        self.conn = None
 
     def generate_report(self):
-        self.mysql_connect(self.__mysql_config)
-        self.mysql_execute(self.query_str, self.query_params)
+        self.mysql_connect()
+        self.mysql_execute()
         self.create_workbook()
         self.prepare_sheet()
         self.fetch_rows_and_write()
@@ -50,21 +55,36 @@ class MySql2Xlsx(object):
         self.write_final_file()
         verb(1, 'Done.')
 
-    def mysql_connect(self, mysql_config):
+    def mysql_connect(self, mysql_config=None):
         verb(1, 'Connecting...')
+        if mysql_config is None:
+            mysql_config = self.__mysql_config 
+        if mysql_config is None:
+            raise ValueError('No mysql_config defined')
+
         self.conn = mysql.connector.connect(**mysql_config)
         self.cursor = self.conn.cursor()
         return self.cursor
 
-    def mysql_execute(self, query_str, query_params=None):
+    def mysql_execute(self, query_str=None, query_params=None):
         verb(1, 'Executing SQL...')
+        if query_str is None:
+            query_str = self.query_str
+        if query_str is None:
+            raise ValueError('No query_str defined')
+        if query_params is None:
+            query_params = self.query_params
+
         self.cursor.execute(query_str, query_params)
         if not len(self.cursor.column_names):
-            raise ValueError('No columns on query set')
+            raise RuntimeError('No columns on query set')
         return self.cursor
 
     def mysql_disconnect(self):
-        self.conn.close()
+        if self.conn is not None:
+            verb(3, 'Disconnecting...')
+            self.conn.close()
+            self.conn = None
 
     def create_workbook(self):
         verb(1, 'Creating XLSX Workbook...')
@@ -82,6 +102,7 @@ class MySql2Xlsx(object):
         return self.ws
 
     def set_filters(self):
+        verb(3, 'Setting Auto Filter...')
         self.ws.auto_filter.ref = 'A:{}'.format(
                 get_column_letter(len(self.cursor.column_names)))
         return self.ws
@@ -93,10 +114,10 @@ class MySql2Xlsx(object):
         self.write_column_names()
         return self.ws
 
-    def mysql_fetch_data_chunk(self, chunk_size=1000):
+    def mysql_fetch_data_chunk(self, chunk_size=FETCH_CHUNK_SIZE):
         return self.cursor.fetchmany(size=chunk_size)
 
-    def mysql_fetch_rows_iterator(self, chunk_size=1000):
+    def mysql_fetch_rows_iterator(self, chunk_size=FETCH_CHUNK_SIZE):
         while True:
             data_chunk = self.mysql_fetch_data_chunk(chunk_size)
             if not data_chunk:
@@ -117,12 +138,14 @@ class MySql2Xlsx(object):
         self.ws.append(sheet_row)
         return self.ws
 
-    def fetch_rows_and_write(self, chunk_size=1000):
+    def fetch_rows_and_write(self, chunk_size=FETCH_CHUNK_SIZE,
+                             fetch_rows_iter=None):
+        if fetch_rows_iter is None:
+            fetch_rows_iter = self.mysql_fetch_rows_iterator
         cols_lengths = [ [] for _ in range(len(self.cursor.column_names)) ]
         cols_types = [ Counter() for _ in range(len(self.cursor.column_names)) ]
-
         verb(1, 'Writing data to worksheet...')
-        for data_row in self.mysql_fetch_rows_iterator():
+        for data_row in fetch_rows_iter():
             sheet_row = []
             for i, value in enumerate(data_row):
                 sheet_row.append(value)
@@ -140,16 +163,35 @@ class MySql2Xlsx(object):
         self.cols_types = cols_types 
         return self.ws
 
+    def _check_tmp_fname(self):
+        verb(5, 'Checking tmp file name...')
+        if self.tmp_fname is None:
+            f = NamedTemporaryFile(delete=False, suffix='.xlsx')
+            self.tmp_fname = f.name
+            f.close()
+            verb(5, 'Tmp file name: {}'.format(self.tmp_fname))
+
+    def _cleanup_tmp_file(self):
+        verb(5, 'Cleaning up tmp file...')
+        if self.tmp_fname is not None and self.tmp_fname != self.out_fname :
+            verb(5, 'Tmp file found, removing...')
+            os.unlink(self.tmp_fname)
+            self.tmp_fname = None
+
+    def save_and_reload(self):
+        self._check_tmp_fname()
+        verb(3, 'Saving intermediate file...')
+        self.wb.save(self.tmp_fname)
+        verb(5, 'Reloading intermediate file...')
+        self.wb = load_workbook(self.tmp_fname)
+        self.ws = self.wb.active
+
     def make_final_adjustments(self):
         verb(1, 'Final adjustments...')
 
         # need to save and re-open file to edit, as write_only mode does not
         # support in-memory editing
-        verb(3, 'Saving intermediate file...')
-        self.wb.save(self.out_fname)
-        verb(3, 'Reloading intermediate file...')
-        self.wb = load_workbook(self.out_fname)
-        self.ws = self.wb.active
+        self.save_and_reload()
 
         self.resize_columns()
         self.format_numbers()
@@ -197,9 +239,17 @@ class MySql2Xlsx(object):
         row1 = self.ws.row_dimensions[1]
         row1.height = 26
 
-    def write_final_file(self):
+    def write_final_file(self, out_fname=None):
+        if out_fname is None:
+            out_fname = self.out_fname
+        if out_fname is None:
+            raise ValueError('No output file name defined')
         verb(1, 'Writing final file...')
-        self.wb.save(self.out_fname)
+        self.wb.save(out_fname)
+
+    def __del__(self):
+        self.mysql_disconnect()
+        self._cleanup_tmp_file()
 
 
 
