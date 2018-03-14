@@ -11,7 +11,6 @@ import mysql.connector
 import os
 from openpyxl import Workbook
 from openpyxl.utils.cell import get_column_letter
-from openpyxl.worksheet.write_only import WriteOnlyCell
 from openpyxl.styles import Font
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
@@ -19,9 +18,14 @@ from decimal import Decimal
 from math import ceil
 from collections import Counter
 from tempfile import NamedTemporaryFile
+import logging
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 verbosity_level = 2
 #verbosity_level = 5
+
 
 def verb(level, *args, **kwargs):
     kwargs['flush'] = True
@@ -43,6 +47,7 @@ class MySql2Xlsx(object):
         self.tmp_fname = self.out_fname = out_fname
         self.query_params = query_params
         self.conn = None
+        self.cursor = None
 
     def generate_report(self):
         self.mysql_connect()
@@ -124,14 +129,12 @@ class MySql2Xlsx(object):
                 return
             yield data_chunk
 
-
     def mysql_fetch_rows_iterator(self, chunk_size=FETCH_CHUNK_SIZE):
-        for data_chunk in self.mysql_fetch_chunk_iterator():
+        for data_chunk in self.mysql_fetch_chunk_iterator(chunk_size):
             verb(2, '.', end='')
             for data_row in data_chunk:
                 yield data_row
         verb(2, '')
-
 
     def write_column_names(self):
         verb(3, 'Writing column names on first row...')
@@ -143,13 +146,12 @@ class MySql2Xlsx(object):
         self.ws.append(sheet_row)
         return self.ws
 
-    def _fetch_write_loop_start(self, chunk_size=FETCH_CHUNK_SIZE):
+    def _fetch_write_loop_start(self):
         cols_lengths = [ [] for _ in range(len(self.cursor.column_names)) ]
         cols_types = [ Counter() for _ in range(len(self.cursor.column_names)) ]
 
         self.cols_lengths = cols_lengths 
         self.cols_types = cols_types 
-
 
     def _fetch_write_loop_step(self, data_row):
         cols_lengths = self.cols_lengths 
@@ -166,7 +168,6 @@ class MySql2Xlsx(object):
             cols_lengths[i].append(0 if value is None else len(str(value)))
         self.ws.append(sheet_row)
 
-
     def _fetch_write_loop_finish(self):
         pass
 
@@ -174,8 +175,8 @@ class MySql2Xlsx(object):
 
         verb(1, 'Writing data to worksheet...')
 
-        self._fetch_write_loop_start(chunk_size)
-        for data_row in self.mysql_fetch_rows_iterator():
+        self._fetch_write_loop_start()
+        for data_row in self.mysql_fetch_rows_iterator(chunk_size):
             self._fetch_write_loop_step(data_row)
 
         verb(2, 'Total Number of rows: {}'.format(self.cursor.rowcount))
@@ -184,17 +185,17 @@ class MySql2Xlsx(object):
         return self.ws
 
     def _check_tmp_fname(self):
-        verb(5, 'Checking tmp file name...')
+        log.debug('Checking tmp file name...')
         if self.tmp_fname is None:
             f = NamedTemporaryFile(delete=False, suffix='.xlsx')
             self.tmp_fname = f.name
             f.close()
-            verb(5, 'Tmp file name: {}'.format(self.tmp_fname))
+            log.debug('Tmp file name: "%s"', self.tmp_fname)
 
     def _cleanup_tmp_file(self):
-        verb(5, 'Cleaning up tmp file...')
+        log.debug('Cleaning up tmp file...')
         if self.tmp_fname is not None and self.tmp_fname != self.out_fname :
-            verb(5, 'Tmp file found, removing...')
+            log.debug('Unlinking file: "%s"...', self.tmp_fname)
             os.unlink(self.tmp_fname)
             self.tmp_fname = None
 
@@ -202,7 +203,7 @@ class MySql2Xlsx(object):
         self._check_tmp_fname()
         verb(3, 'Saving intermediate file...')
         self.wb.save(self.tmp_fname)
-        verb(5, 'Reloading intermediate file...')
+        verb(3, 'Reloading intermediate file...')
         self.wb = load_workbook(self.tmp_fname)
         self.ws = self.wb.active
 
@@ -228,8 +229,8 @@ class MySql2Xlsx(object):
             else:
                 dec9th = sorted(col)[ceil(len(col)/10*9)]
                 column_width = min(m, dec9th)
-            verb(5, 'column_width : {}'.format(column_width))
-            
+            log.debug('column_width : %s', column_width)
+
             column = get_column_letter(i+1)
             self.ws.column_dimensions[column].width = column_width
 
@@ -240,7 +241,7 @@ class MySql2Xlsx(object):
             try:
                 col_type = cells_types.most_common(1)[0][0]
             except IndexError:
-                continue # no other types besides None
+                continue  # no other types besides None
 
             if col_type in (float, Decimal):
                 for cell in self.ws[get_column_letter(i+1)]:
@@ -248,8 +249,10 @@ class MySql2Xlsx(object):
 
     def format_column_names(self, font=None, alignment=None):
         verb(2, 'Formating column names...')
-        alignment = Alignment(wrap_text=True) if alignment is None else alignment
-        font = Font(bold=True) if font is None else font
+        if alignment is None:
+            alignment = Alignment(wrap_text=True)
+        if font is None:
+            font = Font(bold=True)
 
         for i in range(len(self.cursor.column_names)):
             cell = self.ws.cell(row=1, column=i+1)
@@ -272,8 +275,10 @@ class MySql2Xlsx(object):
         self._cleanup_tmp_file()
 
 
-
 def main():
+    # logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig()
+
     if not (2 <= len(sys.argv) <= 3) or sys.argv[1] in ('-h', '--help'):
         print('Usage:')
         print('    {} <query-file.sql> [output_file.xlsx]'.format(sys.argv[0]))
@@ -294,7 +299,6 @@ def main():
 
     mysql2xlsx = MySql2Xlsx(mysql_config, raw_sql, out_fname)
     mysql2xlsx.generate_report()
-
 
 
 if __name__ == '__main__':
