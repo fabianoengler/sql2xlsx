@@ -67,7 +67,7 @@ to export those results to a spreadsheet and apply some filtering and sorting.
 Hence, this is very simple and hacky script done in a hurry in a rainy night
 that I decided to share, so don't expect much: It doesn't have unittest, it
 doesn't use argparse, it's source-code is not commented, it doesn't use the
-best coding practices ever, etc., etc.
+best coding practices ever, it doesn't have a lot of error handling, etc., etc.
 
 Again: it is a very simple script done in a few spare hours, but it does
 the job for me. Hope you find it useful as well.
@@ -84,7 +84,7 @@ class and simply call `generate_report()`.
 
 `generate_report()` in the other hand will simply call many helper methods
 in sequence. If you want to customize anything, it should be very easy to
-subclass this MySql2Xlsx() and overwrite any methods you want.
+subclass `MySql2Xlsx` and overwrite any methods you want.
 
 Some good candidates for overwriting are:
 
@@ -99,8 +99,11 @@ Some good candidates for overwriting are:
 The queries can actually have parameters, using python format style, like:
 
 ```SQL
-SELECT first_name, last_name, hire_date FROM employees
-WHERE hire_date BETWEEN %(start_date)s AND %(end_date)s
+SELECT
+    first_name, last_name, hire_date
+FROM employees
+WHERE hire_date
+    BETWEEN %(start_date)s AND %(end_date)s
 ```
 
 
