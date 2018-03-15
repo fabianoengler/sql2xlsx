@@ -19,6 +19,8 @@ from math import ceil
 from collections import Counter
 from tempfile import NamedTemporaryFile
 import logging
+from datetime import datetime
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -285,7 +287,8 @@ def main():
         sys.exit(-1)
 
     try:
-        raw_sql = open(sys.argv[1], 'rt').read()
+        input_fname = Path(sys.argv[1])
+        raw_sql = input_fname.open('rt').read()
     except OSError as e:
         print(e)
         sys.exit(e.errno)
@@ -295,10 +298,13 @@ def main():
     if len(sys.argv) == 3:
         out_fname = sys.argv[2]
     else:
-        out_fname = '{}_result.xlsx'.format(sys.argv[1])
+        out_fname = '{}_{}.xlsx'.format(
+                datetime.now().strftime('%Y-%m-%d_%H%M%S'),
+                input_fname.stem)
 
     mysql2xlsx = MySql2Xlsx(mysql_config, raw_sql, out_fname)
     mysql2xlsx.generate_report()
+    verb(2, 'Output wrote to: {}'.format(out_fname))
 
 
 if __name__ == '__main__':
