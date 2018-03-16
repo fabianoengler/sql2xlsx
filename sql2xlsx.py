@@ -15,11 +15,11 @@ from openpyxl.styles import Font
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 from decimal import Decimal
-from math import ceil
+from math import floor
 from collections import Counter
 from tempfile import NamedTemporaryFile
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -35,9 +35,11 @@ def verb(level, *args, **kwargs):
         print(*args, **kwargs)
 
 
+
 class MySql2Xlsx(object):
 
-    MIN_COL_WIDTH = 6
+    MIN_COL_WIDTH = 7
+    MAX_COL_WIDTH = 70
     MIN_COL_FULL_LEN = 25
     NUMBER_FORMAT = '#,##0.00'
     FETCH_CHUNK_SIZE = 1000
@@ -161,13 +163,18 @@ class MySql2Xlsx(object):
         sheet_row = []
         for i, value in enumerate(data_row):
             sheet_row.append(value)
-            chars = 0 if value is None else len(str(value))
-            if isinstance(value, int):
-                chars += 1
+            if value is None:
+                chars = 0
             elif isinstance(value, (float, Decimal)):
-                chars += 2
+                chars = len('{:3,.2f}'.format(value))
+            elif isinstance(value, datetime):
+                chars = 19
+            elif isinstance(value, date):
+                chars = 11
+            else:
+                chars = len(str(value)) + 2
             cols_types[i][type(value)] += 1
-            cols_lengths[i].append(0 if value is None else len(str(value)))
+            cols_lengths[i].append(chars)
         self.ws.append(sheet_row)
 
     def _fetch_write_loop_finish(self):
@@ -226,14 +233,16 @@ class MySql2Xlsx(object):
         verb(2, 'Resizing columns...')
         for i, col in enumerate(self.cols_lengths):
             m = max(col)
+            dec9th = None
             if m <= self.MIN_COL_FULL_LEN:
                 column_width = max(m, self.MIN_COL_WIDTH)
             else:
-                dec9th = sorted(col)[ceil(len(col)/10*9)]
-                column_width = min(m, dec9th)
-            log.debug('column_width : %s', column_width)
-
+                dec9th = sorted(col)[floor(len(col)/10*9)]
+                column_width = min(m, dec9th, self.MAX_COL_WIDTH)
             column = get_column_letter(i+1)
+            log.debug('column_width[%s]: %s (max: %s, dec9th:%s)',
+                      column, column_width, m, dec9th)
+
             self.ws.column_dimensions[column].width = column_width
 
     def format_numbers(self):
