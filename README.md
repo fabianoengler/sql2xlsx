@@ -25,10 +25,15 @@ You can simply run:
 
     $ ./sql2xlsx.py myquery.sql myreport.xlsx
 
-And that is it.
+**And that is it.**
 
-The second argument is optional, if omitted, output name will be derived from
-input name.
+_Note: Output file will be overwritten without confirmation if it already
+exists._
+
+The second argument is optional, if omitted, the output file will be created
+on the current directory with a timestamp and .xlsx extension. For example:
+`sql2xlsx /home/user/reports/monthly-sales.sql` will output to
+`./2018-03-16_160450_monthly-sales.xlsx` . 
 
 
 ## Quick Start
@@ -162,21 +167,30 @@ particular order). Or ideas for you to contribute if you feel like it:
 - [x] Accept parameterized queries.
 - [x] Implement some heuristic for column width resizing.
 - [x] Use tempfile for intermediate file if output file name not defined.
+- [x] Add timestamp to derived output name.
+- [x] Make derived output file path to be current working dir.
 - [ ] Add tests (unittest or BDD?).
 - [ ] Use argparse for command line options handling.
 - [ ] Create a decent --help.
 - [ ] Document the source code.
 - [ ] Make a distributable package (installable via pip).
 - [ ] Create a man page.
-- [ ] Make internal verbosity level configurable by CLI (via multiple -v options).
+- [ ] Make internal verbosity level configurable by CLI (eg. via
+      multiple -v options).
 - [ ] Add parameterized queries to CLI.
-- [ ] Improve heuristic for column width resizing and make it easier to overwrite/customize.
-- [ ] Make it easier to customize common formatting, such as default font and size.
-- [ ] Add time stamp to derived output name.
-- [ ] Make derived output file path to be current working dir.
+- [ ] Improve heuristic for column width resizing and make it easier to
+      overwrite/customize.
+- [ ] Make it easier to customize common formatting, such as default
+      font and size.
+- [ ] Make the column resizing algorithm consider the font size.
+- [ ] Make the column resizing algorithm handle multiline cell contents.
 - [ ] Replace custom hacky printing for logging module.
 - [ ] Make use of config file optional (credentials via CLI or env vars).
+- [ ] Check if output file exists and add a flag to force overwrite (like -f)
+- [ ] Add option to output CSV instead of XLSX?
 
-If you got any other ideas, feel free to fork and submit a pull request!
+
+**If you got any other ideas, feel free to reach me out or fork and submit a
+pull request!**
 
 
